@@ -115,8 +115,11 @@ protected function pdoconnect()    {
     
         $query.=")";
 
-
-        //echo $query."<br /><br />"; //display query for testing purposes only
+        /**
+         * echoo the query to ensure that it is correct
+         * for debugging only
+         */
+        //echo $query."<br /><br />"; 
 
         try{
             $statement = $this->pdo->prepare($query);
