@@ -31,7 +31,7 @@ class OR_Dbase
     private $db_pass;
     private $db_name;
     
-    private $pdo;
+    protected $pdo;
 
     public $last_query;
     private $magic_quotes_active;
@@ -48,6 +48,7 @@ class OR_Dbase
      *
      */
     
+//public function __construct($db_host = "localhost", $db_user = "comn8admin", $db_pass = "tasiadjeley1$$5", $db_name="comn8") {
 public function __construct($db_host = "localhost", $db_user = "admin", $db_pass = "password", $db_name="comn8") {
 $this->db_host = $db_host;
 $this->db_user = $db_user;
@@ -123,16 +124,17 @@ protected function pdoconnect()    {
 
         try{
             $statement = $this->pdo->prepare($query);
-            $statement->execute($pdvalues);    
+            $statement->execute($pdvalues); 
+
+            if ($this->pdo->lastInsertId() > 0){
+                return TRUE;
+            }else{
+                return FALSE;
+            }   
         }
         catch (PDOException $e){
             throw $e;
-        }
-        
-    
-        if ($statement->lastInsertId() > 0){
-            return TRUE;
-        }else{
+            //log the error
             return FALSE;
         }
     
@@ -151,6 +153,15 @@ protected function pdoconnect()    {
 	}
 	
 	
+    // $query = "
+    //     UPDATE `access_users`   
+    //     SET `contact_first_name` = :firstname,
+    //         `contact_surname` = :surname,
+    //         `contact_email` = :email,
+    //         `telephone` = :telephone 
+    //     WHERE `user_id` = :user_id
+    // ";
+
         $query ="UPDATE $table SET " ;
 	//echo count($fields);
 	$count = 1;
@@ -166,13 +177,21 @@ protected function pdoconnect()    {
 	
 	//echo $query;
 	
-	$result = mysql_query($query);
-    
-        if (mysql_affected_rows() >= 0){
-            return true;
+	try{
+        $statement = $this->pdo->prepare($query);
+        $statement->execute(); 
+
+        if ($statement->rowCount() > 0){
+            return TRUE;
         }else{
-            return false;
-        }
+            return FALSE;
+        }   
+    }
+    catch (PDOException $e){
+        throw $e;
+        //log the error
+        return FALSE;
+    }
     
     }
 
@@ -180,44 +199,47 @@ protected function pdoconnect()    {
 #delete values in database function
 
     public function deleterecord($table="", $id="", $idtype){
-        $this->dbconnect();
-        $query = "DELETE FROM $table WHERE ".$idtype." = '{$id}' LIMIT 1";
-        //echo $query;
-        $result = mysql_query($query);
         
-        if (mysql_affected_rows() > 0){
-            return TRUE;
-        }else{
-            return FALSE;
+        $query = "DELETE FROM $table WHERE ".$idtype." = :id LIMIT 1";
+        
+        try{
+            $statement = $this->pdo->prepare($query);
+            $statement->bindValue(':id', $id);
+            $statement->execute();
+
+            if ($statement->rowCount() > 0){
+                return true;
+            }else{
+                return false;
+            } 
         }
-        
+        catch (PDOException $e){
+            throw $e;
+            return false;
+        }
+
     }
 
 #select all records
 
-    public function selectallrecords($table = NULL){
-        $query = "SELECT * FROM $table";
-	//echo $query;
-        $result = mysql_query($query);
-		
-	while($row = mysql_fetch_array($result, MYSQL_ASSOC)){
-	    $values[] = $row;
-	}
-	
-	//if(isset($values) && count($values) > 0){
-	//    foreach ($values as $c) {
-	//        while (list($k, $v) = each ($c)) {
-	//           echo "$k ... $v <br/>";
-	//        }
-	//    }    
-	//}
-	
-	
-	//print_r($return);
-	
-        return (isset($values)) ? $values : NULL;
-    
+    public function selectRecords($table, $stringfields, $limit, $offset, $orderby = null){
         
+        if(isset($orderby) && !empty($orderby)){
+            $order = "order by ".$orderby." desc";
+        }
+        else{
+            $order = null;
+        }
+        $q = "select $stringfields from $table $order limit $limit offset $offset";
+        $rows = $this->pdo->query($q)->fetchAll();
+
+        if(count($rows) > 0){
+            return $rows;
+        }
+        else{
+            return false;
+        }
+       
     }
     
     //affected rows
@@ -303,7 +325,7 @@ protected function pdoconnect()    {
  * @return boolean will return a boolean true if the user is found or a boolean false if the user is not found
  */
 
-    public function checkuserexists($username = NULL, $password = NULL, $table = NULL, $usernameField = NULL, $passwordField = NULL){
+    public function checkuserisregistered($username = NULL, $password = NULL, $table = NULL, $usernameField = NULL, $passwordField = NULL){
         /* connect to the database */
 	$this->dbconnect();
 	
@@ -334,7 +356,7 @@ protected function pdoconnect()    {
 
 #mysql query
     public function query($query){
-        mysql_query($query);
+        $this->pdo->query($query);
     }
     
 
